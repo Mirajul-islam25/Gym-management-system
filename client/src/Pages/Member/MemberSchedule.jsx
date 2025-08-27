@@ -1,83 +1,101 @@
-import React, { useState } from 'react';
-// eslint-disable-next-line no-unused-vars
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, Clock, Users, MapPin, Filter, Plus } from 'lucide-react';
 import AnimatedBackground from '../../Component/AnimatedBackground';
 
 const MemberSchedule = () => {
-  const [scheduleItems] = useState([
-    {
-      id: 1,
-      title: 'Morning Yoga',
-      trainer: 'Maria Garcia',
-      date: '2024-01-16',
-      time: '07:00',
-      duration: 60,
-      location: 'Studio A',
-      capacity: 20,
-      enrolled: 15,
-      type: 'class',
-      difficulty: 'beginner'
-    },
-    {
-      id: 2,
-      title: 'HIIT Training',
-      trainer: 'David Johnson',
-      date: '2024-01-16',
-      time: '18:00',
-      duration: 45,
-      location: 'Main Gym',
-      capacity: 15,
-      enrolled: 12,
-      type: 'class',
-      difficulty: 'intermediate'
-    },
-    {
-      id: 3,
-      title: 'Personal Training',
-      trainer: 'Alex Smith',
-      date: '2024-01-17',
-      time: '08:00',
-      duration: 60,
-      location: 'PT Room 1',
-      capacity: 1,
-      enrolled: 1,
-      type: 'personal',
-      difficulty: 'advanced'
-    },
-    {
-      id: 4,
-      title: 'Strength Training',
-      trainer: 'Alex Smith',
-      date: '2024-01-17',
-      time: '19:00',
-      duration: 75,
-      location: 'Weight Room',
-      capacity: 12,
-      enrolled: 8,
-      type: 'class',
-      difficulty: 'intermediate'
-    },
-    {
-      id: 5,
-      title: 'Pilates',
-      trainer: 'Maria Garcia',
-      date: '2024-01-18',
-      time: '10:00',
-      duration: 50,
-      location: 'Studio B',
-      capacity: 16,
-      enrolled: 11,
-      type: 'class',
-      difficulty: 'beginner'
-    }
-  ]);
-
+  const [scheduleItems, setScheduleItems] = useState([]);
   const [filter, setFilter] = useState('all');
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
+  const [memberId, setMemberId] = useState(null);
 
-  const filteredSchedule = filter === 'all' 
-    ? scheduleItems 
-    : scheduleItems.filter(item => item.type === filter);
+  useEffect(() => {
+    const userData = JSON.parse(localStorage.getItem('user'));
+    if (userData) {
+      setUser(userData);
+      fetchMemberProfile(userData.id);
+    }
+  }, []);
+
+  const fetchMemberProfile = async (userId) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/profile/${userId}`);
+      const data = await response.json();
+      if (data.member) {
+        setMemberId(data.member.id);
+        fetchSchedule(data.member.id);
+      }
+    } catch (error) {
+      console.error('Error fetching member profile:', error);
+      setLoading(false);
+    }
+  };
+
+  const fetchSchedule = async (memberId) => {
+    try {
+      setLoading(true);
+      
+      // Fetch schedule from API
+      const response = await fetch('http://localhost:5000/api/schedule');
+      const scheduleData = await response.json();
+      
+      // Fetch all bookings to calculate enrolled count
+      const bookingsResponse = await fetch('http://localhost:5000/api/bookings');
+      const bookingsData = await bookingsResponse.json();
+
+      // Fetch user's bookings to check which sessions are booked
+      const userBookingsResponse = await fetch('http://localhost:5000/api/bookings');
+      const userBookingsData = await userBookingsResponse.json();
+      const userBookedSessions = userBookingsData
+        .filter(booking => booking.member_id === memberId)
+        .map(booking => booking.schedule_id);
+
+      // Format schedule items
+      const formattedSchedule = scheduleData.map(item => {
+        const enrolled = bookingsData.filter(b => b.schedule_id === item.id).length;
+        return {
+          id: item.id,
+          title: item.class_type,
+          trainer: item.trainer_name || 'Unknown Trainer',
+          day: item.day, // Store the day for date calculation
+          time: item.time || '07:00',
+          duration: item.duration_minutes,
+          location: item.location,
+          capacity: item.capacity,
+          enrolled: enrolled,
+          type: item.type,
+          difficulty: item.difficulty,
+          isBooked: userBookedSessions.includes(item.id)
+        };
+      });
+      
+      setScheduleItems(formattedSchedule);
+    } catch (error) {
+      console.error('Error fetching schedule:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Helper function to get the next date for a given day of the week
+  const getNextDateForDay = (dayName) => {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const dayIndex = days.indexOf(dayName);
+    if (dayIndex === -1) return new Date().toISOString().split('T')[0];
+    
+    const today = new Date();
+    const todayIndex = today.getDay();
+    let daysToAdd = dayIndex - todayIndex;
+    
+    if (daysToAdd <= 0) {
+      daysToAdd += 7;
+    }
+    
+    const nextDate = new Date(today);
+    nextDate.setDate(today.getDate() + daysToAdd);
+    return nextDate.toISOString().split('T')[0];
+  };
 
   const getTypeColor = (type) => {
     switch (type) {
@@ -105,6 +123,77 @@ const MemberSchedule = () => {
     }
   };
 
+  const formatTime = (timeString) => {
+    if (!timeString) return '07:00 AM';
+    
+    const [hours, minutes] = timeString.split(':');
+    const hour = parseInt(hours);
+    return `${hour % 12 || 12}:${minutes} ${hour >= 12 ? 'PM' : 'AM'}`;
+  };
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    if (date.toDateString() === today.toDateString()) return 'Today';
+    if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
+    
+    return date.toLocaleDateString('en-US', { weekday: 'long' });
+  };
+
+  const handleBookSession = async (item) => {
+    if (item.isBooked) {
+      alert('You have already booked this class.');
+      return;
+    }
+
+    if (!memberId) {
+      alert('Member information not found. Please try again.');
+      return;
+    }
+
+    try {
+      const response = await fetch('http://localhost:5000/api/schedule/book', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          schedule_id: item.id,
+          member_id: memberId
+        })
+      });
+      
+      if (response.ok) {
+        alert(`Successfully booked ${item.title}!`);
+        fetchSchedule(memberId); // Refresh schedule
+      } else {
+        const errorData = await response.json();
+        alert(errorData.message || 'Failed to book class');
+      }
+    } catch (error) {
+      console.error('Error booking class:', error);
+      alert('Error booking class');
+    }
+  };
+
+  // Filter schedule based on selected filter
+  const filteredSchedule = scheduleItems.filter(item => {
+    if (filter === 'all') return true;
+    return item.type === filter;
+  });
+
+  if (loading) {
+    return (
+      <div className="min-h-screen relative">
+        <AnimatedBackground />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex items-center justify-center">
+          <div className="text-white text-xl">Loading schedule...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen relative">
       <AnimatedBackground />
@@ -124,6 +213,7 @@ const MemberSchedule = () => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-3 rounded-lg font-semibold flex items-center space-x-2 hover:from-purple-600 hover:to-pink-600 transition-all duration-300"
+              onClick={() => alert('Session booking modal would open here')}
             >
               <Plus className="h-5 w-5" />
               <span>Book Session</span>
@@ -195,11 +285,11 @@ const MemberSchedule = () => {
               <div className="space-y-3 mb-4">
                 <div className="flex items-center space-x-3 text-gray-300">
                   <Calendar className="h-4 w-4" />
-                  <span>{new Date(item.date).toLocaleDateString()}</span>
+                  <span>{formatDate(getNextDateForDay(item.day))}</span>
                 </div>
                 <div className="flex items-center space-x-3 text-gray-300">
                   <Clock className="h-4 w-4" />
-                  <span>{item.time} ({item.duration} min)</span>
+                  <span>{formatTime(item.time)} ({item.duration} min)</span>
                 </div>
                 <div className="flex items-center space-x-3 text-gray-300">
                   <MapPin className="h-4 w-4" />
@@ -222,13 +312,14 @@ const MemberSchedule = () => {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 className={`w-full py-3 rounded-lg font-semibold transition-all duration-300 ${
-                  item.enrolled < item.capacity
+                  item.enrolled < item.capacity && !item.isBooked
                     ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600'
                     : 'bg-gray-500/20 text-gray-400 cursor-not-allowed'
                 }`}
-                disabled={item.enrolled >= item.capacity}
+                disabled={item.enrolled >= item.capacity || item.isBooked}
+                onClick={() => handleBookSession(item)}
               >
-                {item.enrolled >= item.capacity ? 'Full' : 'Book Now'}
+                {item.isBooked ? 'Booked' : item.enrolled >= item.capacity ? 'Full' : 'Book Now'}
               </motion.button>
             </motion.div>
           ))}

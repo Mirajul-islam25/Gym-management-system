@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-// eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
 import { User, Lock, AlertCircle, Dumbbell } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -25,13 +24,16 @@ const Login = () => {
     try {
       const success = await login(formData.email, formData.password);
       if (success) {
-        navigate('/admin/dashboard');
-      } else {
-        setError('Invalid credentials. Try admin@gym.com/admin123 or member@gym.com/member123');
+        // Redirect based on user role
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (user.role === 'admin') {
+          navigate('/admin/dashboard');
+        } else {
+          navigate('/member/dashboard');
+        }
       }
-    // eslint-disable-next-line no-unused-vars
     } catch (err) {
-      setError('Login failed. Please try again.');
+      setError(err.message || 'Login failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -141,9 +143,8 @@ const Login = () => {
         </div>
 
         <div className="mt-6 p-4 bg-blue-500/20 border border-blue-500/50 rounded-lg">
-          <p className="text-blue-300 text-sm font-medium mb-2">Demo Credentials:</p>
-          <p className="text-blue-200 text-xs">Admin: admin@gym.com / admin123</p>
-          <p className="text-blue-200 text-xs">Member: member@gym.com / member123</p>
+          <p className="text-blue-300 text-sm font-medium mb-2">Note:</p>
+          <p className="text-blue-200 text-xs">Use your registered email and password to login</p>
         </div>
       </motion.div>
     </div>

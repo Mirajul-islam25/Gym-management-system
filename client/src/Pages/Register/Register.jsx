@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-// eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
-import { User, Mail, Lock, AlertCircle, Dumbbell } from 'lucide-react';
+import { User, Mail, Lock, AlertCircle, Dumbbell, Calendar,Users } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import AnimatedBackground from '../../Component/AnimatedBackground';
 
@@ -11,7 +10,10 @@ const Register = () => {
     name: '',
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    age: '',
+    gender: '',
+    plan_id: ''
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -31,15 +33,20 @@ const Register = () => {
     }
 
     try {
-      const success = await register(formData);
+      const success = await register({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        age: parseInt(formData.age),
+        gender: formData.gender,
+        plan_id: parseInt(formData.plan_id) || null
+      });
+
       if (success) {
         navigate('/member/dashboard');
-      } else {
-        setError('Registration failed. Please try again.');
       }
-    // eslint-disable-next-line no-unused-vars
     } catch (err) {
-      setError('Registration failed. Please try again.');
+      setError(err.message || 'Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -60,7 +67,7 @@ const Register = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8 }}
-        className="max-w-md w-full bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-sm rounded-2xl p-8 shadow-xl border border-white/20"
+        className="max-w-md w-full bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-sm rounded-2xl p-8 shadow-xl border border-white/20 overflow-y-auto max-h-screen"
       >
         <div className="text-center mb-8">
           <motion.div
@@ -85,7 +92,7 @@ const Register = () => {
           </motion.div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-2">
               Full Name
@@ -126,6 +133,68 @@ const Register = () => {
                 onChange={handleChange}
               />
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="age" className="block text-sm font-medium text-gray-300 mb-2">
+                Age
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Calendar className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  id="age"
+                  name="age"
+                  type="number"
+                  min="16"
+                  max="100"
+                  className="block w-full pl-10 pr-3 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                  placeholder="Age"
+                  value={formData.age}
+                  onChange={handleChange}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="gender" className="block text-sm font-medium text-gray-300 mb-2">
+                Gender
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Users className="h-5 w-5 text-gray-400" />
+                </div>
+                <select
+                  id="gender"
+                  name="gender"
+                  className="block w-full pl-10 pr-3 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 appearance-none"
+                  value={formData.gender}
+                  onChange={handleChange}
+                >
+                  <option value="">Select Gender</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="plan_id" className="block text-sm font-medium text-gray-300 mb-2">
+              Membership Plan (Optional)
+            </label>
+            <input
+              id="plan_id"
+              name="plan_id"
+              type="number"
+              className="block w-full px-3 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+              placeholder="Plan ID (if known)"
+              value={formData.plan_id}
+              onChange={handleChange}
+            />
           </div>
 
           <div>

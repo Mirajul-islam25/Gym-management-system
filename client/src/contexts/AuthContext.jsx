@@ -26,40 +26,59 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     setIsLoading(true);
     
-    // Mock login logic
-    if (email === 'admin@gym.com' && password === 'admin123') {
-      const adminUser = { id: 1, name: 'Admin', email: 'admin@gym.com', role: 'admin' };
-      setUser(adminUser);
-      localStorage.setItem('user', JSON.stringify(adminUser));
+    try {
+      const response = await fetch('http://localhost:5000/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setUser(data.user);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        setIsLoading(false);
+        return true;
+      } else {
+        throw new Error(data.message || 'Login failed');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
       setIsLoading(false);
-      return true;
-    } else if (email === 'member@gym.com' && password === 'member123') {
-      const memberUser = { id: 2, name: 'John Doe', email: 'member@gym.com', role: 'member' };
-      setUser(memberUser);
-      localStorage.setItem('user', JSON.stringify(memberUser));
-      setIsLoading(false);
-      return true;
+      throw error;
     }
-    
-    setIsLoading(false);
-    return false;
   };
 
   const register = async (userData) => {
     setIsLoading(true);
     
-    // Mock registration
-    const newUser = { 
-      id: Date.now(), 
-      name: userData.name, 
-      email: userData.email, 
-      role: 'member'
-    };
-    
-    setUser(newUser);
-    localStorage.setItem('user', JSON.stringify(newUser));
-    setIsLoading(false);
-    return true;
+    try {
+      const response = await fetch('http://localhost:5000/api/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // After successful registration, automatically log the user in
+        const loginSuccess = await login(userData.email, userData.password);
+        setIsLoading(false);
+        return loginSuccess;
+      } else {
+        throw new Error(data.message || 'Registration failed');
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      setIsLoading(false);
+      throw error;
+    }
   };
 
   const logout = () => {
