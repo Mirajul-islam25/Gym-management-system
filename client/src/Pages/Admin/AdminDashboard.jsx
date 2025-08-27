@@ -1,5 +1,4 @@
-import React from 'react';
-// eslint-disable-next-line no-unused-vars
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Users, CreditCard, Calendar, TrendingUp, Plus, Activity } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -7,25 +6,89 @@ import StatsCard from '../../Component/StatsCard/StatsCard';
 import AnimatedBackground from '../../Component/AnimatedBackground';
 
 const AdminDashboard = () => {
-  const stats = [
-    { title: 'Total Members', value: '1,234', icon: Users, color: 'bg-gradient-to-r from-purple-500 to-pink-500', change: '+12%' },
-    { title: 'Monthly Revenue', value: '$45,320', icon: CreditCard, color: 'bg-gradient-to-r from-green-500 to-emerald-500', change: '+8%' },
-    { title: 'Active Sessions', value: '87', icon: Activity, color: 'bg-gradient-to-r from-blue-500 to-cyan-500', change: '+5%' },
-    { title: 'Growth Rate', value: '23%', icon: TrendingUp, color: 'bg-gradient-to-r from-orange-500 to-red-500', change: '+3%' }
-  ];
+  const [stats, setStats] = useState([
+    { title: 'Total Members', value: '0', icon: Users, color: 'bg-gradient-to-r from-purple-500 to-pink-500', change: '+0%' },
+    { title: 'Monthly Revenue', value: '$0', icon: CreditCard, color: 'bg-gradient-to-r from-green-500 to-emerald-500', change: '+0%' },
+    { title: 'Active Sessions', value: '0', icon: Activity, color: 'bg-gradient-to-r from-blue-500 to-cyan-500', change: '+0%' },
+    { title: 'Growth Rate', value: '0%', icon: TrendingUp, color: 'bg-gradient-to-r from-orange-500 to-red-500', change: '+0%' }
+  ]);
 
-  const recentActivities = [
-    { id: 1, type: 'member', message: 'New member John Doe joined', time: '2 hours ago' },
-    { id: 2, type: 'payment', message: 'Payment received from Sarah Wilson', time: '4 hours ago' },
-    { id: 3, type: 'plan', message: 'Gold plan purchased by Mike Johnson', time: '6 hours ago' },
-    { id: 4, type: 'trainer', message: 'New trainer Alex Smith added', time: '1 day ago' }
-  ];
+  const [recentActivities, setRecentActivities] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch stats
+      const statsResponse = await fetch('http://localhost:5000/api/dashboard/stats');
+      const statsData = await statsResponse.json();
+      
+      // Fetch recent activities
+      const activitiesResponse = await fetch('http://localhost:5000/api/dashboard/activities');
+      const activitiesData = await activitiesResponse.json();
+      
+      // Update stats
+      setStats([
+        { 
+          title: 'Total Members', 
+          value: statsData.totalMembers.toLocaleString(), 
+          icon: Users, 
+          color: 'bg-gradient-to-r from-purple-500 to-pink-500', 
+          change: '+12%' 
+        },
+        { 
+          title: 'Monthly Revenue', 
+          value: `$${statsData.monthlyRevenue.toLocaleString()}`, 
+          icon: CreditCard, 
+          color: 'bg-gradient-to-r from-green-500 to-emerald-500', 
+          change: '+8%' 
+        },
+        { 
+          title: 'Active Sessions', 
+          value: statsData.activeSessions.toString(), 
+          icon: Activity, 
+          color: 'bg-gradient-to-r from-blue-500 to-cyan-500', 
+          change: '+5%' 
+        },
+        { 
+          title: 'Growth Rate', 
+          value: `${statsData.growthRate}%`, 
+          icon: TrendingUp, 
+          color: 'bg-gradient-to-r from-orange-500 to-red-500', 
+          change: '+3%' 
+        }
+      ]);
+      
+      // Update activities
+      setRecentActivities(activitiesData);
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const quickActions = [
     { title: 'Add New Member', icon: Users, link: '/admin/members', color: 'bg-gradient-to-r from-purple-500 to-pink-500' },
     { title: 'Create Plan', icon: CreditCard, link: '/admin/plans', color: 'bg-gradient-to-r from-green-500 to-emerald-500' },
     { title: 'Schedule Session', icon: Calendar, link: '/admin/schedule', color: 'bg-gradient-to-r from-blue-500 to-cyan-500' }
   ];
+
+  if (loading) {
+    return (
+      <div className="min-h-screen relative">
+        <AnimatedBackground />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex items-center justify-center">
+          <div className="text-white text-xl">Loading dashboard...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen relative">
@@ -93,15 +156,23 @@ const AdminDashboard = () => {
         >
           <h2 className="text-2xl font-bold text-white mb-4">Recent Activity</h2>
           <div className="space-y-4">
-            {recentActivities.map((activity) => (
-              <div key={activity.id} className="flex items-center justify-between p-4 bg-white/5 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                  <span className="text-white">{activity.message}</span>
+            {recentActivities.length > 0 ? (
+              recentActivities.map((activity, index) => (
+                <div key={index} className="flex items-center justify-between p-4 bg-white/5 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-2 h-2 rounded-full ${
+                      activity.type === 'member' ? 'bg-purple-500' : 'bg-green-500'
+                    }`}></div>
+                    <span className="text-white">{activity.message}</span>
+                  </div>
+                  <span className="text-gray-400 text-sm">{activity.time}</span>
                 </div>
-                <span className="text-gray-400 text-sm">{activity.time}</span>
+              ))
+            ) : (
+              <div className="text-center text-gray-400 py-4">
+                No recent activities
               </div>
-            ))}
+            )}
           </div>
         </motion.div>
       </div>

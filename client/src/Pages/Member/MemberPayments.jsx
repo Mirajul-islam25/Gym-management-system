@@ -1,50 +1,59 @@
-import React, { useState } from 'react';
-// eslint-disable-next-line no-unused-vars
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { CreditCard, Download, Filter, Calendar } from 'lucide-react';
 import AnimatedBackground from '../../Component/AnimatedBackground';
 
 const MemberPayments = () => {
-  const [payments] = useState([
-    {
-      id: 1,
-      date: '2024-01-15',
-      amount: 49,
-      plan: 'Gold Membership',
-      status: 'completed',
-      paymentMethod: 'Credit Card (**** 1234)',
-      invoiceNumber: 'INV-2024-001'
-    },
-    {
-      id: 2,
-      date: '2023-12-15',
-      amount: 49,
-      plan: 'Gold Membership',
-      status: 'completed',
-      paymentMethod: 'Credit Card (**** 1234)',
-      invoiceNumber: 'INV-2023-012'
-    },
-    {
-      id: 3,
-      date: '2023-11-15',
-      amount: 49,
-      plan: 'Gold Membership',
-      status: 'completed',
-      paymentMethod: 'Credit Card (**** 1234)',
-      invoiceNumber: 'INV-2023-011'
-    },
-    {
-      id: 4,
-      date: '2023-10-15',
-      amount: 29,
-      plan: 'Silver Membership',
-      status: 'completed',
-      paymentMethod: 'PayPal',
-      invoiceNumber: 'INV-2023-010'
-    }
-  ]);
-
+  const [payments, setPayments] = useState([]);
   const [filter, setFilter] = useState('all');
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
+  const [currentPlan, setCurrentPlan] = useState(null);
+
+  useEffect(() => {
+    const userData = JSON.parse(localStorage.getItem('user'));
+    if (userData) {
+      setUser(userData);
+      fetchPayments(userData.id);
+    }
+  }, []);
+
+  const fetchPayments = async (userId) => {
+    try {
+      setLoading(true);
+      
+      // Fetch member profile to get current plan and payments
+      const profileResponse = await fetch(`http://localhost:5000/api/profile/${userId}`);
+      const profileData = await profileResponse.json();
+      
+      if (profileData.member) {
+        setCurrentPlan({
+          name: profileData.member.plan_name || 'No Plan',
+          price: profileData.member.plan_price || 0
+        });
+      }
+
+      // Fetch payments
+      if (profileData.payments && profileData.payments.length > 0) {
+        const formattedPayments = profileData.payments.map(payment => ({
+          id: payment.id,
+          date: payment.payment_date,
+          amount: payment.amount,
+          plan: profileData.member?.plan_name || 'Membership',
+          status: payment.status,
+          paymentMethod: payment.payment_method,
+          invoiceNumber: payment.invoice_number || `INV-${payment.id.toString().padStart(4, '0')}`
+        }));
+        
+        setPayments(formattedPayments);
+      }
+
+    } catch (error) {
+      console.error('Error fetching payments:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredPayments = filter === 'all' 
     ? payments 
@@ -66,6 +75,24 @@ const MemberPayments = () => {
   const totalPaid = payments
     .filter(p => p.status === 'completed')
     .reduce((sum, p) => sum + p.amount, 0);
+
+  const calculateNextPayment = () => {
+    const nextPayment = new Date();
+    nextPayment.setMonth(nextPayment.getMonth() + 1);
+    nextPayment.setDate(15);
+    return nextPayment.toLocaleDateString();
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen relative">
+        <AnimatedBackground />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex items-center justify-center">
+          <div className="text-white text-xl">Loading payment history...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen relative">
@@ -93,7 +120,7 @@ const MemberPayments = () => {
               <CreditCard className="h-8 w-8 text-green-400" />
               <span className="text-gray-300">Total Paid</span>
             </div>
-            <div className="text-3xl font-bold text-white">${totalPaid}</div>
+            <div className="text-3xl font-bold text-white">${totalPaid.toFixed(2)}</div>
           </div>
           
           <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/20">
@@ -101,7 +128,7 @@ const MemberPayments = () => {
               <Calendar className="h-8 w-8 text-blue-400" />
               <span className="text-gray-300">Next Payment</span>
             </div>
-            <div className="text-xl font-bold text-white">Feb 15, 2024</div>
+            <div className="text-xl font-bold text-white">{calculateNextPayment()}</div>
           </div>
           
           <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/20">
@@ -109,7 +136,9 @@ const MemberPayments = () => {
               <CreditCard className="h-8 w-8 text-purple-400" />
               <span className="text-gray-300">Current Plan</span>
             </div>
-            <div className="text-xl font-bold text-white">Gold - $49/mo</div>
+            <div className="text-xl font-bold text-white">
+              {currentPlan?.name || 'No Plan'} - ${currentPlan?.price || 0}/mo
+            </div>
           </div>
         </motion.div>
 
@@ -209,6 +238,7 @@ const MemberPayments = () => {
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
                         className="text-purple-400 hover:text-purple-300 transition-colors"
+                        onClick={() => alert('Invoice download functionality would be implemented here')}
                       >
                         <Download className="h-4 w-4" />
                       </motion.button>
@@ -227,7 +257,9 @@ const MemberPayments = () => {
             transition={{ delay: 0.8 }}
             className="text-center py-12"
           >
-            <div className="text-gray-400 text-lg">No payments found for the selected filter.</div>
+            <div className="text-gray-400 text-lg">
+              {payments.length === 0 ? 'No payment history found.' : 'No payments found for the selected filter.'}
+            </div>
           </motion.div>
         )}
       </div>
